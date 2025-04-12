@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+      @font-face {
+        font-family: 'LucideIcons';
+        src: url(https://cdn.jsdelivr.net/npm/lucide-static@latest/font/Lucide.ttf) format('truetype');
+        font-weight: normal;
+        font-style: normal;
+      }
+    </style>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif; /* Use Inter as the default font */
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #111827; /* Darker background */
+            overflow: hidden; /* Prevent scrollbars during animation */
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px; /* Increased max-width for larger screens */
+            padding: 2rem;
+            border-radius: 1rem;
+            background-color: rgba(255, 255, 255, 0.06); /* Glassmorphism effect - more subtle*/
+            backdrop-filter: blur(12px); /* Slightly stronger blur */
+            box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.25); /* Deeper shadow */
+            border: 1px solid rgba(255, 255, 255, 0.1); /* Add a border */
+            text-align: center;
+            position: relative; /* Needed for absolute positioning of canvas */
+        }
+
+        h1 {
+            font-family: 'Press Start 2P', monospace; /* Retro font for the title */
+            font-size: 2rem; /* Larger title */
+            color: #f5f5f5; /* Off-white, slightly warmer */
+            margin-bottom: 1.5rem; /* Increased margin */
+            text-shadow: 0 0 0.25rem rgba(255, 255, 255, 0.8); /* Subtle text shadow */
+        }
+
+        #visualizerCanvas {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          border-radius: 1rem; /* Ensure canvas has same rounded corners as container */
+          z-index: 0; /* Place canvas behind other elements */
+        }
+
+        .controls {
+            z-index: 1; /* Ensure controls are above the canvas */
+            position: relative;
+            margin-top: 2rem; /* Increased margin above controls */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.5rem; /* Increased gap between control elements */
+        }
+
+        #audioInput {
+            margin-bottom: 0; /* Removed default margin-bottom */
+        }
+
+        .file-upload-button-wrapper {
+            position: relative;
+            display: inline-flex; /* Use inline-flex for better alignment */
+            align-items: center;
+            background-color: #4CAF50; /* Green */
+            color: white;
+            padding: 0.75rem 1.5rem; /* Slightly increased padding */
+            border-radius: 0.5rem; /* More rounded corners */
+            cursor: pointer;
+            transition: background-color 0.3s ease; /* Smooth transition */
+            overflow: hidden;  /* hide the overflowed part of the input */
+        }
+
+        .file-upload-button-wrapper:hover {
+            background-color: #45a049; /* Darker green on hover */
+        }
+
+
+        #audioInput {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .file-name {
+            margin-top: 1rem;
+            font-size: 0.8rem;
+            color: #CBD5E0; /* Light gray text */
+            opacity: 0.8; /* Slightly less opaque */
+            transition: opacity 0.3s ease; /* Smooth transition */
+        }
+
+        .file-name.active {
+            opacity: 1; /* Fully opaque when a file is selected */
+        }
+
+
+        #playPauseButton {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            background-color: #3b82f6; /* Tailwind's blue-500 */
+            color: white;
+            font-family: 'Press Start 2P', monospace;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            font-size: 0.8rem;
+            display: flex; /* Use flexbox for icon alignment */
+            align-items: center; /* Vertically center icon and text */
+            gap: 0.5rem; /* Space between icon and text */
+            box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.15); /* Add shadow */
+        }
+
+        #playPauseButton:hover {
+            background-color: #2563eb; /* Tailwind's blue-700 */
+        }
+
+        #playPauseButton.playing {
+            background-color: #ef4444; /* Tailwind's red-500 */
+        }
+
+        #playPauseButton.playing:hover {
+            background-color: #b91c1c; /* Tailwind's red-700 */
+        }
+
+        .volume-container {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        #volumeSlider {
+            width: 120px; /* Increased width of slider */
+            height: 0.5rem; /* Increased height of slider */
+            -webkit-appearance: none;
+            appearance: none;
+            background: rgba(255, 255, 255, 0.3); /* Glassy slider background */
+            outline: none;
+            border-radius: 0.75rem; /* More rounded slider */
+            cursor: pointer;
+        }
+
+        #volumeSlider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 1.25rem; /* Increased size of thumb */
+            height: 1.25rem;
+            background: #f5f5f5; /* Off-white thumb */
+            border-radius: 50%;
+            border: 2px solid #3b82f6; /* Blue border */
+            box-shadow: 0 0.125rem 0.375rem rgba(0, 0, 0, 0.1); /* Add shadow to thumb */
+        }
+
+        #volumeSlider::-moz-range-thumb {
+            width: 1.25rem; /* Increased size of thumb */
+            height: 1.25rem;
+            background: #f5f5f5;
+            border-radius: 50%;
+            border: 2px solid #3b82f6;
+            box-shadow: 0 0.125rem 0.375rem rgba(0, 0, 0, 0.1);
+        }
+
+        #volumeSlider::-webkit-slider-thumb:hover,
+        #volumeSlider::-moz-range-thumb:hover {
+            transform: scale(1.1); /* Slightly larger on hover */
+        }
+
+        #volumeSlider:focus {
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5); /* Add focus outline */
+        }
+
+        .icon {
+            font-family: 'LucideIcons';
+            font-style: normal;
+            font-weight: 400;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            display: inline-block;
+            line-height: 1;
+        }
+
+        #muteButton {
+            background-color: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            font-size: 1.5rem; /* Increased size of mute button */
+            color: #f5f5f5;
+            transition: color 0.3s ease;
+        }
+
+        #muteButton:hover {
+            color: #3b82f6; /* Change color on hover */
+        }
+
+        #muteButton.muted {
+            color: #ef4444; /* Change color when muted */
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Vibe Visualizer</h1>
+        <canvas id="visualizerCanvas"></canvas>
+        <div class="controls">
+             <div class="file-upload-button-wrapper">
+                <span class="file-upload-text">Choose File</span>
+                <input type="file" id="audioInput" accept="audio/*">
+             </div>
+            <div class="file-name">No file selected</div>
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <button id="playPauseButton">
+                    <span id="playPauseIcon" class="icon">&#xe670;</span> <span id="playPauseText">Play</span>
+                </button>
+                <div class="volume-container">
+                    <button id="muteButton">
+                        <span id="muteIcon" class="icon">&#xe671;</span>
+                    </button>
+                    <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="1">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        const container = document.querySelector('.container');
+        const canvas = document.getElementById('visualizerCanvas');
+        const audioInput = document.getElementById('audioInput');
+        const audio = new Audio();
+        const ctx = canvas.getContext('2d');
+        const playPauseButton = document.getElementById('playPauseButton');
+        const playPauseIcon = document.getElementById('playPauseIcon');
+        const playPauseText = document.getElementById('playPauseText');
+        const fileNameDisplay = document.querySelector('.file-name');
+        const volumeSlider = document.getElementById('volumeSlider');
+        const muteButton = document.getElementById('muteButton');
+        const muteIcon = document.getElementById('muteIcon');
+
+        let audioSource;
+        let analyser;
+        let animationId;
+        let isPlaying = false;
+        let isMuted = false;
+        let previousVolume = 1; // Store volume before muting
+
+
+        // Set the canvas size to fill the entire container
+        function resizeCanvas() {
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+        }
+
+        resizeCanvas(); // Initial resize
+        window.addEventListener('resize', resizeCanvas); // Resize on window resize
+
+
+
+        audioInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const url = URL.createObjectURL(file);
+            audio.src = url;
+
+            if (file) {
+                fileNameDisplay.textContent = file.name;
+                fileNameDisplay.classList.add('active'); // Show the file name
+            } else {
+                fileNameDisplay.textContent = 'No file selected';
+                fileNameDisplay.classList.remove('active'); // Hide the file name
+            }
+        });
+
+        audio.addEventListener('canplay', function() {
+            if (isPlaying) {
+                audio.play(); // Start playing automatically if already playing
+            }
+        });
+
+        playPauseButton.addEventListener('click', function() {
+            if (!audio.src) {
+                alert('Please select an audio file first.');
+                return;
+            }
+
+            if (isPlaying) {
+                audio.pause();
+                cancelAnimationFrame(animationId);
+                isPlaying = false;
+                playPauseIcon.textContent = '\ue670'; // Play icon
+                playPauseText.textContent = 'Play';
+                playPauseButton.classList.remove('playing');
+            } else {
+                audio.play().then(() => {
+                    isPlaying = true;
+                    playPauseIcon.textContent = '\ue673'; // Pause icon
+                    playPauseText.textContent = 'Pause';
+                    playPauseButton.classList.add('playing');
+                    if (!audioSource) {
+                        setupAudioVisualization();
+                    } else {
+                        animate(); // Restart animation if source is already set up
+                    }
+                }).catch(error => {
+                    console.error("Playback failed:", error);
+                    isPlaying = false; // Ensure isPlaying is set to false on error
+                    playPauseIcon.textContent = '\ue670'; // Play icon
+                    playPauseText.textContent = 'Play';
+                    playPauseButton.classList.remove('playing');
+                    alert('Failed to play audio. Please try a different file.');
+                });
+            }
+        });
+
+        audio.addEventListener('ended', () => {
+            isPlaying = false;
+            playPauseIcon.textContent = '\ue670'; // Play icon
+            playPauseText.textContent = 'Play';
+            playPauseButton.classList.remove('playing');
+            cancelAnimationFrame(animationId);
+        });
+
+        function setupAudioVisualization() {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioContext.createAnalyser();
+            analyser.fftSize = 2048;
+            audioSource = audioContext.createMediaElementSource(audio);
+            audioSource.connect(analyser);
+            analyser.connect(audioContext.destination);
+            animate();
+        }
+
+        function animate() {
+            if (!isPlaying) return; // Stop animation if not playing
+
+            animationId = requestAnimationFrame(animate);
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            analyser.getByteFrequencyData(dataArray);
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            draw(dataArray);
+        }
+
+        function draw(dataArray) {
+            const barWidth = (canvas.width / dataArray.length) * 2.5;
+            let x = 0;
+
+            for (let i = 0; i < dataArray.length; i++) {
+                const barHeight = dataArray[i] / 2;
+                const r = 255 - (i * 8);
+                const g = i * 4;
+                const b = i * 8;
+
+                ctx.fillStyle = `rgb(${r},${g},${b})`;
+                ctx.fillRect(x, canvas.height - barHeight / 2, barWidth, barHeight);
+                x += barWidth + 1;
+            }
+        }
+
+        volumeSlider.addEventListener('input', function() {
+            audio.volume = this.value;
+            if (parseFloat(this.value) === 0) {
+                isMuted = true;
+                muteIcon.textContent = '\ue672'; // Muted icon
+            } else {
+                isMuted = false;
+                muteIcon.textContent = '\ue671'; // Volume up icon
+            }
+            previousVolume = parseFloat(this.value);
+        });
+
+        muteButton.addEventListener('click', () => {
+            if (isMuted) {
+                audio.volume = previousVolume; // Restore previous volume
+                volumeSlider.value = previousVolume;
+                muteIcon.textContent = '\ue671'; // Volume up icon
+                isMuted = false;
+            } else {
+                previousVolume = audio.volume;
+                audio.volume = 0;
+                volumeSlider.value = 0;
+                muteIcon.textContent = '\ue672'; // Muted icon
+                isMuted = true;
+            }
+        });
+
+    </script>
+</body>
+</html>
